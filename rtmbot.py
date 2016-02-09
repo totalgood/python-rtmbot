@@ -14,14 +14,17 @@ sys.dont_write_bytecode = True
 
 
 def dbg(debug_string):
-
     if DEBUG:
+        print(debug_string)
         logging.info(debug_string)
 
 
 class RtmBot(object):
 
-    def __init__(self, token):
+    def __init__(self, token, channel="C0LL5MDKN", interval=0.3, ping_interval=5):
+        self.channel = channel or "C0LL5MDKN"
+        self.interval = interval
+        self.ping_interval = min(max(ping_interval, 2), 3600)
         self.last_ping = 0
         self.token = token
         self.bot_plugins = []
@@ -37,17 +40,22 @@ class RtmBot(object):
         self.load_plugins()
         while True:
             for reply in self.slack_client.rtm_read():
+                dbg('reply: {}'.format(reply))
                 self.input(reply)
             self.crons()
             self.output()
             self.autoping()
-            time.sleep(.1)
+            time.sleep(self.interval)
+            if DEBUG and (10 < (time.time() - self.last_ping) < (10 + self.interval * 4)):
+                ans = self.slack_client.rtm_send_message(self.channel, "I'm alive!")
+                dbg('Answer to send_message: {}'.format(ans))
 
-    def autoping(self, interval=3):
+    def autoping(self):
         """Automatically ping the server every 3 seconds"""
         now = int(time.time())
-        if now > self.last_ping + interval:
+        if now > self.last_ping + self.ping_interval:
             self.slack_client.server.ping()
+            dbg('Next ping in {}s'.format(self.ping_interval))
             self.last_ping = now
 
     def input(self, data):
@@ -62,6 +70,7 @@ class RtmBot(object):
         for plugin in self.bot_plugins:
             limiter = False
             for output in plugin.do_output():
+                dbg('Found {} output: {}'.format(plugin, output))
                 channel = self.slack_client.server.channels.find(output[0])
                 if channel is not None and output[1] is None:
                     if limiter is True:
@@ -203,7 +212,10 @@ if __name__ == "__main__":
 
     config = yaml.load(file(args.config or 'rtmbot.conf', 'r'))
     DEBUG = config["DEBUG"]
-    bot = RtmBot(config["SLACK_TOKEN"])
+    bot = RtmBot(config["SLACK_TOKEN"],
+                 channel=config["CHANNEL"],
+                 interval=config.get("INTERVAL", 0.3),
+                 ping_interval=config.get("PING_INTERVAL", 5.0))
     site_plugins = []
     files_currently_downloading = []
     job_hash = {}
