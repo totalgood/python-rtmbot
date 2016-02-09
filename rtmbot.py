@@ -25,6 +25,7 @@ class RtmBot(object):
         self.channel = channel or "C0LL5MDKN"
         self.interval = interval
         self.ping_interval = min(max(ping_interval, 2), 3600)
+        self.first_ping = 0
         self.last_ping = 0
         self.token = token
         self.bot_plugins = []
@@ -46,7 +47,7 @@ class RtmBot(object):
             self.output()
             self.autoping()
             time.sleep(self.interval)
-            if DEBUG and (10 < (time.time() - self.last_ping) < (10 + self.interval * 4)):
+            if DEBUG and (10 < (time.time() - self.first_ping) < (10 + self.interval * 2.1)):
                 ans = self.slack_client.rtm_send_message(self.channel, "I'm alive!")
                 dbg('Answer to send_message: {}'.format(ans))
 
@@ -54,6 +55,7 @@ class RtmBot(object):
         """Automatically ping the server every 3 seconds"""
         now = int(time.time())
         if now > self.last_ping + self.ping_interval:
+            self.first_ping = self.first_ping or now
             self.slack_client.server.ping()
             dbg('Next ping in {}s'.format(self.ping_interval))
             self.last_ping = now
