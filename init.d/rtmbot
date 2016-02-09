@@ -1,5 +1,13 @@
 #!/bin/sh
 
+### Installation ###
+# sudo cp python-rtmbot/init.d/rtmbot /etc/init.d/
+# sudo chown root:root /etc/init.d/rtmbot
+# sudo chmod 755 /etc/init.d/rtmbot
+# sudo update-rc.d rtmbot defaults
+# sudo update-rc.d rtmbot enable
+# sudo /etc/init.d/rtmbot start
+
 ### BEGIN INIT INFO
 # Provides:          exampledaemon
 # Required-Start:    $local_fs $remote_fs $network $syslog

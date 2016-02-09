@@ -1,33 +1,37 @@
 #!/usr/bin/env python
-
+"""Load plugins and start the python-rtmbot to interact with slackbot using callbacks"""
 import sys
-sys.dont_write_bytecode = True
-
 import glob
 import yaml
-import json
+# import json
 import os
-import sys
 import time
 import logging
 from argparse import ArgumentParser
-
 from slackclient import SlackClient
 
+sys.dont_write_bytecode = True
+
+
 def dbg(debug_string):
+
     if debug:
         logging.info(debug_string)
 
+
 class RtmBot(object):
+
     def __init__(self, token):
         self.last_ping = 0
         self.token = token
         self.bot_plugins = []
         self.slack_client = None
+
     def connect(self):
         """Convenience method that creates Server instance"""
         self.slack_client = SlackClient(self.token)
         self.slack_client.rtm_connect()
+
     def start(self):
         self.connect()
         self.load_plugins()
@@ -38,12 +42,14 @@ class RtmBot(object):
             self.output()
             self.autoping()
             time.sleep(.1)
+
     def autoping(self):
         #hardcode the interval to 3 seconds
         now = int(time.time())
         if now > self.last_ping + 3:
             self.slack_client.server.ping()
             self.last_ping = now
+
     def input(self, data):
         if "type" in data:
             function_name = "process_" + data["type"]
@@ -51,6 +57,7 @@ class RtmBot(object):
             for plugin in self.bot_plugins:
                 plugin.register_jobs()
                 plugin.do(function_name, data)
+
     def output(self):
         for plugin in self.bot_plugins:
             limiter = False
@@ -63,20 +70,19 @@ class RtmBot(object):
                     message = output[1].encode('ascii','ignore')
                     channel.send_message("{}".format(message))
                     limiter = True
+
     def crons(self):
         for plugin in self.bot_plugins:
             plugin.do_jobs()
+
     def load_plugins(self):
-        for plugin in glob.glob(directory+'/plugins/*'):
+        for plugin in glob.glob(directory + '/plugins/*'):
             sys.path.insert(0, plugin)
-            sys.path.insert(0, directory+'/plugins/')
-        for plugin in glob.glob(directory+'/plugins/*.py') + glob.glob(directory+'/plugins/*/*.py'):
+            sys.path.insert(0, directory + '/plugins/')
+        for plugin in glob.glob(directory + '/plugins/*.py') + glob.glob(directory+'/plugins/*/*.py'):
             logging.info(plugin)
             name = plugin.split('/')[-1][:-3]
-#            try:
             self.bot_plugins.append(Plugin(name))
-#            except:
-#                print "error loading plugin %s" % name
 
 class Plugin(object):
     def __init__(self, name, plugin_config={}):
@@ -90,6 +96,7 @@ class Plugin(object):
             self.module.config = config[name]
         if 'setup' in dir(self.module):
             self.module.setup()
+
     def register_jobs(self):
         if 'crontable' in dir(self.module):
             for interval, function in self.module.crontable:
@@ -98,16 +105,17 @@ class Plugin(object):
             self.module.crontable = []
         else:
             self.module.crontable = []
+
     def do(self, function_name, data):
         if function_name in dir(self.module):
             #this makes the plugin fail with stack trace in debug mode
             if not debug:
                 try:
-                    eval("self.module."+function_name)(data)
+                    eval("self.module." + function_name)(data)
                 except:
                     dbg("problem in module {} {}".format(function_name, data))
             else:
-                eval("self.module."+function_name)(data)
+                eval("self.module." + function_name)(data)
         if "catch_all" in dir(self.module):
             try:
                 self.module.catch_all(data)
