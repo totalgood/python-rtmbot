@@ -2,3 +2,5 @@
 /rtmbot.conf
 # /plugins/**
 env
+*.data
+
