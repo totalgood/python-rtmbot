@@ -14,12 +14,14 @@ sys.dont_write_bytecode = True
 
 
 def dbg(debug_string):
+    """Print and/or log a message to stdout and/or stderr, or do nothing"""
     if DEBUG:
         print(debug_string)
         logging.info(debug_string)
 
 
 class RtmBot(object):
+    """Run plugins and check slack for status periodically"""
 
     def __init__(self, token, channel="C0LL5MDKN", interval=0.3, ping_interval=5):
         self.channel = channel or "C0LL5MDKN"
@@ -30,6 +32,7 @@ class RtmBot(object):
         self.token = token
         self.bot_plugins = []
         self.slack_client = None
+        self.last_output = None
 
     def connect(self):
         """Convenience method that creates Server instance"""
@@ -47,7 +50,7 @@ class RtmBot(object):
             self.output()
             self.autoping()
             time.sleep(self.interval)
-            if DEBUG and (10 < (time.time() - self.first_ping) < (10 + self.interval * 2.1)):
+            if DEBUG and (10 < (time.time() - self.first_ping) < (10 + self.interval * 2)) and not self.last_output:
                 ans = self.slack_client.rtm_send_message(self.channel, "I'm alive!")
                 dbg('Answer to send_message: {}'.format(ans))
 
@@ -80,6 +83,7 @@ class RtmBot(object):
                         limiter = False
                     message = output[1].encode('ascii', 'ignore')
                     channel.send_message("{}".format(message))
+                    self.last_output = time.time()
                     limiter = True
 
     def crons(self):
