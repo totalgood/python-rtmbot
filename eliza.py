@@ -1,14 +1,36 @@
 #!/usr/bin/env python
-"""Load plugins and start the python-rtmbot to interact with slackbot using callbacks"""
+# -*- coding: utf-8 -*-
+"""Console app that parses args, loads plugins, and starts the infinite-loop python-rtmbot to interact with slackbot using callbacks
+
+FIXME: Get this to work (based on scaffolding skeleton.py)
+To run this script uncomment the following line in the entry_points section
+in setup.cfg:
+
+    console_scripts =
+        eliza = huml.module:function
+
+Then run `python setup.py install` which will install the command `eliza`
+inside your current environment.
+"""
+from __future__ import division, print_function, absolute_import, unicode_literal
+
+import argparse
 import sys
+import logging
+
+from huml import __version__
+
 import glob
 import yaml
 # import json
 import os
 import time
-import logging
-from argparse import ArgumentParser
 from slackclient import SlackClient
+
+_logger = logging.getLogger(__name__)
+__author__ = "Hobs"
+__copyright__ = "Hack Oregon"
+__license__ = "MIT"
 
 sys.dont_write_bytecode = True
 
@@ -199,19 +221,32 @@ def main_loop():
         logging.exception('OOPS')
 
 
-def parse_args():
-    parser = ArgumentParser()
+def parse_args(args):
+    """
+    Parse command line parameters
+
+    :param args: command line parameters as list of strings
+    :return: command line parameters as :obj:`argparse.Namespace`
+    """
+    parser = argparse.ArgumentParser(
+        description="Just a Hello World demonstration")
+    parser.add_argument(
+        '-v',
+        '--version',
+        action='version',
+        version='huml {ver}'.format(ver=__version__))
     parser.add_argument(
         '-c',
         '--config',
         help='Full path to config file.',
         metavar='path'
     )
-    return parser.parse_args()
+    return parser.parse_args(args)
 
 
 if __name__ == "__main__":
-    args = parse_args()
+
+    args = parse_args(sys.argv)
     directory = os.path.dirname(sys.argv[0])
     if not directory.startswith('/'):
         directory = os.path.abspath("{}/{}".format(os.getcwd(), directory))
@@ -232,3 +267,14 @@ if __name__ == "__main__":
             with daemon.DaemonContext():
                 main_loop()
     main_loop()
+
+
+def main(args=None):
+    logging.basicConfig(level=logging.INFO, stream=sys.stdout)
+    args = args or sys.argv[1:]
+    args = parse_args(args)
+    _logger.info("Script ends here")
+
+
+def run(args=None):
+    main(args)
