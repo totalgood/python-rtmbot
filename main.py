@@ -18,8 +18,6 @@ import argparse
 import sys
 import logging
 
-from huml import __version__
-
 import glob
 import yaml
 # import json
@@ -28,11 +26,13 @@ import time
 from slackclient import SlackClient
 
 _logger = logging.getLogger(__name__)
-__author__ = "Hobs"
+__author__ = "Hack University Machine Learning class of 2016"
 __copyright__ = "Hack Oregon"
 __license__ = "MIT"
+__version__ = '0.0.1'
 
 sys.dont_write_bytecode = True
+DEBUG = 1
 
 
 def dbg(debug_string):
@@ -250,15 +250,16 @@ def parse_args(args):
 
 if __name__ == "__main__":
 
-    args = parse_args(sys.argv)
+    args = parse_args(sys.argv[1:])
     directory = os.path.dirname(sys.argv[0])
     if not directory.startswith('/'):
         directory = os.path.abspath("{}/{}".format(os.getcwd(), directory))
 
     config = yaml.load(file(args.config or 'rtmbot.conf', 'r'))
-    DEBUG = config["DEBUG"]
+    global DEBUG
+    DEBUG = config.get("DEBUG", 1)
     bot = RtmBot(config["SLACK_TOKEN"],
-                 channel=config["CHANNEL"],
+                 channel=config.get("CHANNEL", "C0LL5MDKN"),
                  interval=config.get("INTERVAL", 0.3),
                  ping_interval=config.get("PING_INTERVAL", 5.0))
     site_plugins = []
