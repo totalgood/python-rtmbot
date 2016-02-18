@@ -12,7 +12,7 @@ in setup.cfg:
 Then run `python setup.py install` which will install the command `eliza`
 inside your current environment.
 """
-from __future__ import division, print_function, absolute_import, unicode_literal
+from __future__ import division, print_function, absolute_import
 
 import argparse
 import sys
@@ -72,7 +72,7 @@ class RtmBot(object):
             self.output()
             self.autoping()
             time.sleep(self.interval)
-            if DEBUG and (10 < (time.time() - self.first_ping) < (10 + self.interval * 2)) and not self.last_output:
+            if DEBUG and (10 < (time.time() - self.first_ping) < (10 + self.interval)) and not self.last_output:
                 ans = self.slack_client.rtm_send_message(self.channel, "I'm alive!")
                 dbg('Answer to send_message: {}'.format(ans))
 
@@ -94,7 +94,11 @@ class RtmBot(object):
                 plugin.do(function_name, data)
 
     def output(self):
+        if DEBUG:
+            print(self.bot_plugins)
         for plugin in self.bot_plugins:
+            if DEBUG:
+                print(plugin)
             limiter = False
             for output in plugin.do_output():
                 dbg('Found {} output: {}'.format(plugin, output))
