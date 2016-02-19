@@ -31,7 +31,7 @@ __copyright__ = "Hack Oregon"
 __license__ = "MIT"
 __version__ = '0.0.1'
 
-sys.dont_write_bytecode = True
+# sys.dont_write_bytecode = True
 DEBUG = 1
 
 
@@ -72,9 +72,9 @@ class RtmBot(object):
             self.output()
             self.autoping()
             time.sleep(self.interval)
-            if DEBUG and (10 < (time.time() - self.first_ping) < (10 + self.interval)) and not self.last_output:
-                ans = self.slack_client.rtm_send_message(self.channel, "I'm alive!")
-                dbg('Answer to send_message: {}'.format(ans))
+            # if DEBUG and (10 < (time.time() - self.first_ping) < (10 + self.interval)) and not self.last_output:
+            #     ans = self.slack_client.rtm_send_message(self.channel, "I'm alive!")
+            #     dbg('Answer to send_message: {}'.format(ans))
 
     def autoping(self):
         """Automatically ping the server every 3 seconds"""
@@ -94,11 +94,8 @@ class RtmBot(object):
                 plugin.do(function_name, data)
 
     def output(self):
-        if DEBUG:
-            print(self.bot_plugins)
+        dbg(self.bot_plugins)
         for plugin in self.bot_plugins:
-            if DEBUG:
-                print(plugin)
             limiter = False
             for output in plugin.do_output():
                 dbg('Found {} output: {}'.format(plugin, output))
@@ -256,7 +253,6 @@ if __name__ == "__main__":
         directory = os.path.abspath("{}/{}".format(os.getcwd(), directory))
 
     config = yaml.load(file(args.config or 'rtmbot.conf', 'r'))
-    global DEBUG
     DEBUG = config.get("DEBUG", 1)
     bot = RtmBot(config["SLACK_TOKEN"],
                  channel=config.get("CHANNEL", "C0LL5MDKN"),
@@ -271,7 +267,8 @@ if __name__ == "__main__":
             import daemon
             with daemon.DaemonContext():
                 main_loop()
-    main_loop()
+    else:
+        main_loop()
 
 
 def main(args=None):
