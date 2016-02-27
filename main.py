@@ -14,32 +14,63 @@ inside your current environment.
 """
 from __future__ import division, print_function, absolute_import
 
-import argparse
+import os
 import sys
 import logging
-
+from copy import deepcopy
+import argparse
 import glob
 import yaml
-# import json
-import os
 import time
+from traceback import format_exc
+
 from slackclient import SlackClient
 
-_logger = logging.getLogger(__name__)
+# Put your real channel, user, and slack_token values in `rtmbot.conf` in YAML format like this
+EXAMPLE_RTMBOT_CONF_FILE = """
+PLUGINS: ""
+DEBUG: 1
+LOGFILE: "bot.log"
+INTERVAL: 2.0
+PING_INTERVAL: 4.11
+CHANNEL: "C0LL4CHAN"
+USER: "U0XX4USER"
+SLACK_TOKEN: "xoxb-20161225042-slackTOKEN1234567xyzabcd"
+"""
+CONFIG = yaml.load(EXAMPLE_RTMBOT_CONF_FILE)
+CONFIG.update(yaml.load(open('rtmbot.conf')))
+CONFIG["PLUGINS"] = (CONFIG["PLUGINS"] or os.path.join(os.getcwd(), 'plugins')).rstrip(os.path.sep)
+
+BOT = None
+
 __author__ = "Hack University Machine Learning class of 2016"
 __copyright__ = "Hack Oregon"
 __license__ = "MIT"
 __version__ = '0.0.1'
 
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
+verbose_formatter = logging.Formatter('%(asctime)s %(levelname)s: %(name)s.%(module)s.%(funcName)s:%(lineno)d: %(message)s')
+debug_formatter = logging.Formatter('%(name)s.%(module)s.%(funcName)s:%(lineno)d: %(message)s')
+# create file handler which logs even debug messages
+log_file_handler = logging.FileHandler(CONFIG.get('LOGFILE', 'bot.log'))
+log_file_handler.setLevel(logging.DEBUG)
+# create console handler with a higher log level
+log_console_handler = logging.StreamHandler()
+log_console_handler.setLevel(logging.WARN)
+# create formatter and add it to the handlers
+log_file_handler.setFormatter(verbose_formatter)
+log_console_handler.setFormatter(debug_formatter)
+# add the handlers to the logger
+log.addHandler(log_file_handler)
+log.addHandler(log_console_handler)
 # sys.dont_write_bytecode = True
-DEBUG = 1
 
 
 def dbg(debug_string):
     """Print and/or log a message to stdout and/or stderr, or do nothing"""
-    if DEBUG:
-        print(debug_string)
-        logging.info(debug_string)
+    if CONFIG['DEBUG']:
+        log.info(debug_string)
 
 
 class RtmBot(object):
@@ -92,6 +123,7 @@ class RtmBot(object):
             for plugin in self.bot_plugins:
                 plugin.register_jobs()
                 plugin.do(function_name, data)
+                plugin.do("catch_all", data)
 
     def output(self):
         dbg(self.bot_plugins)
@@ -114,11 +146,13 @@ class RtmBot(object):
             plugin.do_jobs()
 
     def load_plugins(self):
-        for plugin in glob.glob(directory + '/plugins/*'):
+        # add all the directories and files in the plugins folder to the PYTHONPATH for importing within the plugins
+        for plugin in glob.glob(os.path.join(CONFIG['PLUGINS'], '*')):
             sys.path.insert(0, plugin)
-            sys.path.insert(0, directory + '/plugins/')
-        for plugin in glob.glob(directory + '/plugins/*.py') + glob.glob(directory + '/plugins/*/*.py'):
-            logging.info(plugin)
+        sys.path.insert(0, CONFIG['PLUGINS'] + os.path.sep)
+        # add all python files in the plugins director and subdir to the list of modules to load
+        for plugin in glob.glob(os.path.join(CONFIG['PLUGINS'], '*.py')) + glob.glob(os.path.join(CONFIG['PLUGINS'], '*', '*.py')):
+            log.info("Adding {} to the plugins to be loaded.".format(plugin))
             name = plugin.split('/')[-1][:-3]
             self.bot_plugins.append(Plugin(name))
         print('Loaded: {}'.format(self.bot_plugins))
@@ -131,6 +165,12 @@ class Plugin(object):
         self.module = __import__(name)
         self.register_jobs()
         self.outputs = []
+        config = deepcopy(CONFIG)
+        # allow plugin.conf files to override global rtmbot.conf settings
+        try:
+            config.update(yaml.load(open(name + '.conf')))
+        except:
+            pass
         if name in config:
             logging.info("config found for: " + name)
             self.module.config = config[name]
@@ -148,19 +188,21 @@ class Plugin(object):
 
     def do(self, function_name, data):
         if function_name in dir(self.module):
-            """this makes the plugin fail with stack trace in DEBUG mode"""
-            if DEBUG:
-                try:
-                    eval("self.module." + function_name)(data)
-                except:
-                    dbg("problem in module {} {}".format(function_name, data))
+            """Run the function found in the plugin module"""
+            try:
+                eval("self.module." + function_name)(data)
+            except:
+                # In DEBUG mode you want the exception to be thrown when a plugin fails.
+                if CONFIG['DEBUG']:
+                    raise
+                # Otherwise continue with other plugins and log traceback and error message
+                log.error(format_exc())
+                log.error("Problem in module {} {}".format(function_name, data))
             else:
                 eval("self.module." + function_name)(data)
-        if "catch_all" in dir(self.module):
-            try:
-                self.module.catch_all(data)
-            except:
-                dbg("problem in catch all")
+        else:
+            log.debug("Unable to find {} function in {} module among these functions: {}".format(
+                      function_name, self.module.__name__, dir(self.module)))
 
     def do_jobs(self):
         for job in self.jobs:
@@ -211,31 +253,34 @@ class UnknownChannel(Exception):
 
 
 def main_loop():
-    if "LOGFILE" in config:
-        logging.basicConfig(filename=config["LOGFILE"], level=logging.INFO, format='%(asctime)s %(message)s')
-    logging.info(directory)
+    global CONFIG, BOT
+    log.debug(CONFIG['PLUGINS'])
     try:
-        bot.start()
+        BOT.start()
     except KeyboardInterrupt:
         sys.exit(0)
     except:
-        logging.exception('OOPS')
+        log.error(format_exc())
+        log.error('Unable to start `main_loop()`')
 
 
 def parse_args(args):
-    """
-    Parse command line parameters
+    """Parse shell script command line parameters (arguments)
 
-    :param args: command line parameters as list of strings
-    :return: command line parameters as :obj:`argparse.Namespace`
+    args (list of str): command line parameters with args[0] as the command or name string
+
+    Returns:
+      parsed_args (argparse.Namespace): Command line parameters
+        Individual args are accessible as attributes with `parsed_args.verbose` for the argument named `verbose`
     """
     parser = argparse.ArgumentParser(
         description="Just a Hello World demonstration")
     parser.add_argument(
-        '-v',
         '--version',
         action='version',
         version='huml {ver}'.format(ver=__version__))
+    parser.add_argument("-v", "--verbose", action="count", default=0,
+                        help="Verbose output. May be repeated for greater verbosity")
     parser.add_argument(
         '-c',
         '--config',
@@ -245,38 +290,46 @@ def parse_args(args):
     return parser.parse_args(args)
 
 
-if __name__ == "__main__":
+def main(args=None, config=CONFIG):
+    """Called by `run` which parses argsv[1:] and passes them as args.
 
-    args = parse_args(sys.argv[1:])
-    directory = os.path.dirname(sys.argv[0])
-    if not directory.startswith('/'):
-        directory = os.path.abspath("{}/{}".format(os.getcwd(), directory))
+    If this module is run as a script rather than imported as a module, then
+    `run()` is called without any args, and run() then calls `main()` with a list of command line arg strings
+    (except for argsv[0]). So here we need to...
 
-    config = yaml.load(file(args.config or 'rtmbot.conf', 'r'))
-    DEBUG = config.get("DEBUG", 1)
-    bot = RtmBot(config["SLACK_TOKEN"],
+    1. parse command line arguments (a list of strings) using the argparse package (inside `parse_args` function).
+    2. update the global CONFIG, DEBUG, etc
+    3. Instantiate a bot (which loads all the plugins it can find)
+    """
+    global BOT
+
+    args = parse_args(args or sys.argv[1:])
+
+    BOT = RtmBot(config["SLACK_TOKEN"],
                  channel=config.get("CHANNEL", "C0LL5MDKN"),
                  interval=config.get("INTERVAL", 0.3),
                  ping_interval=config.get("PING_INTERVAL", 5.0))
-    site_plugins = []
-    files_currently_downloading = []
-    job_hash = {}
+    # site_plugins = []
+    # files_currently_downloading = []
+    # job_hash = {}
 
-    if "DAEMON" in config:
-        if config["DAEMON"]:
-            import daemon
-            with daemon.DaemonContext():
-                main_loop()
+    if config.get("DAEMON", None):
+        import daemon
+        with daemon.DaemonContext():
+            main_loop()
     else:
         main_loop()
 
+    log.info("Finished running `main(args={})`".format(args))
 
-def main(args=None):
+
+def run():
+    global CONFIG
+    # set the default or root log level and destination
     logging.basicConfig(level=logging.INFO, stream=sys.stdout)
-    args = args or sys.argv[1:]
-    args = parse_args(args)
-    _logger.info("Script ends here")
+    CONFIG['PLUGINS'] = os.path.join(os.path.dirname(os.path.abspath(sys.argv[0])), 'plugins')
+    main(sys.argv[1:], config=CONFIG)
 
 
-def run(args=None):
-    main(args)
+if __name__ == "__main__":
+    run()
