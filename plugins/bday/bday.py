@@ -14,9 +14,9 @@ outputs = []
 #         process_hello(data)
 
 
-def catch_all(data):
-    log.debug("CAUGHT A SLACK EVENT IN {}.{}.catch_all():".format(__file__, __name__))
-    log.debug("{}".format(data))
+# def catch_all(data):
+#     log.debug("CAUGHT A SLACK EVENT IN {}.{}.catch_all():".format(__file__, __name__))
+#     log.debug("{}".format(data))
 
 
 def process_hello(data=None):
