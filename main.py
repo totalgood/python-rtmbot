@@ -50,7 +50,8 @@ __version__ = '0.0.1'
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
-verbose_formatter = logging.Formatter('%(asctime)s %(levelname)s: %(name)s.%(module)s.%(funcName)s:%(lineno)d: %(message)s')
+verbose_formatter = logging.Formatter('%(asctime)s %(levelname)s: %(name)s.%(module)s.%(funcName)s:%(lineno)d: %(message)s',
+                                      datefmt='%a %b %d %y %H:%M:%S')
 debug_formatter = logging.Formatter('%(name)s.%(module)s.%(funcName)s:%(lineno)d: %(message)s')
 # create file handler which logs even debug messages
 log_file_handler = logging.FileHandler(CONFIG.get('LOGFILE', 'bot.log'))
