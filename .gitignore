@@ -3,4 +3,5 @@
 # /plugins/**
 env
 *.data
+*.log
 

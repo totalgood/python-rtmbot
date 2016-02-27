@@ -99,9 +99,6 @@ class RtmBot(object):
             self.output()
             self.autoping()
             time.sleep(self.interval)
-            # if DEBUG and (10 < (time.time() - self.first_ping) < (10 + self.interval)) and not self.last_output:
-            #     ans = self.slack_client.rtm_send_message(self.channel, "I'm alive!")
-            #     log.debug('Answer to send_message: {}'.format(ans))
 
     def autoping(self):
         """Automatically ping the server every 3 seconds"""
@@ -131,7 +128,7 @@ class RtmBot(object):
                 channel = self.slack_client.server.channels.find(output[0])
                 if channel is not None and output[1] is not None:
                     if limit:
-                        time.sleep(.1)
+                        time.sleep(1)
                         limit = False
                     message = output[1].encode('ascii', 'ignore')
                     channel.send_message("{}".format(message))
@@ -274,7 +271,7 @@ def parse_args(args):
         Individual args are accessible as attributes with `parsed_args.verbose` for the argument named `verbose`
     """
     parser = argparse.ArgumentParser(
-        description="Just a Hello World demonstration")
+        description="SlackBot demonstration")
     parser.add_argument(
         '--version',
         action='version',
@@ -306,9 +303,9 @@ def main(args=None, config=CONFIG):
     args = parse_args(args or sys.argv[1:])
 
     BOT = RtmBot(config["SLACK_TOKEN"],
-                 channel=config.get("CHANNEL", "C0LL5MDKN"),
-                 interval=config.get("INTERVAL", 0.3),
-                 ping_interval=config.get("PING_INTERVAL", 5.0))
+                 channel=config.get("CHANNEL", CONFIG['CHANNEL']),
+                 interval=config.get("INTERVAL", CONFIG['CHANNEL']),
+                 ping_interval=config.get("PING_INTERVAL", CONFIG['CHANNEL']))
     # site_plugins = []
     # files_currently_downloading = []
     # job_hash = {}
