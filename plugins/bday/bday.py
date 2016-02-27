@@ -1,10 +1,12 @@
 """Simple chatbot to notify the channel when it comes online"""
 from __future__ import print_function, division
-import datetime
-outputs = []
 
-global HOME_CHANNEL
-HOME_CHANNEL = "C0LL5MDKN"
+import datetime
+import json
+
+from ...main import log
+
+outputs = []
 
 
 def process_message(data):
@@ -30,11 +32,17 @@ def process_hello(data=None):
       - persist some data between lives and use that to display somthing useful (like this is my 10th bday)
       - create a util.slackout function that utilizes persistent data to populate the default channel
     """
-    print('!!!!!!!!!!!Trying to be born!')
-    outputs.append([HOME_CHANNEL, "Hi! I'm Eliza Bot."])
-    outputs.append([HOME_CHANNEL, "It's good to be alive... again!"])
-    outputs.append([HOME_CHANNEL, "Thanks to whomever I owe for that."])
-    outputs.append([HOME_CHANNEL, "I was *revived* at {}".format(datetime.datetime.now())])
+    channel = data.get('channel', None)
+    outputs.append([channel, "Hi! I'm Eliza."])
+    outputs.append([channel, "I'm responding to a message from Slack at {} with data:\n{}".format(
+                   datetime.datetime.now(), json.dumps(data, indent=2))])
+
+
+def process_presence_change(data=None):
+    """Queues up a message with the time the bot joined the channel"""
+    channel = data.get('channel', None)
+    log.debug('Not responding on channel {} to data: {}'.format(channel, data))
+    # outputs.append([channel, "Hi! I'm Eliza Bot. I'm joining channel {} at {}".format(channel, datetime.datetime.now())])
 
 
 if __name__ == '__main__':

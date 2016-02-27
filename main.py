@@ -49,16 +49,17 @@ __license__ = "MIT"
 __version__ = '0.0.1'
 
 log = logging.getLogger(__name__)
+# default logging level is overridden later based on CONFIG
 log.setLevel(logging.DEBUG)
 verbose_formatter = logging.Formatter('%(asctime)s %(levelname)s: %(name)s.%(module)s.%(funcName)s:%(lineno)d: %(message)s',
                                       datefmt='%a %b %d %y %H:%M:%S')
 debug_formatter = logging.Formatter('%(name)s.%(module)s.%(funcName)s:%(lineno)d: %(message)s')
 # create file handler which logs even debug messages
 log_file_handler = logging.FileHandler(CONFIG.get('LOGFILE', 'bot.log'))
-log_file_handler.setLevel(logging.DEBUG)
+log_file_handler.setLevel(logging.INFO - 10 * CONFIG['DEBUG'])
 # create console handler with a higher log level
 log_console_handler = logging.StreamHandler()
-log_console_handler.setLevel(logging.WARN)
+log_console_handler.setLevel(logging.ERROR - 10 * CONFIG['DEBUG'])
 # create formatter and add it to the handlers
 log_file_handler.setFormatter(verbose_formatter)
 log_console_handler.setFormatter(debug_formatter)
@@ -66,12 +67,6 @@ log_console_handler.setFormatter(debug_formatter)
 log.addHandler(log_file_handler)
 log.addHandler(log_console_handler)
 # sys.dont_write_bytecode = True
-
-
-def dbg(debug_string):
-    """Print and/or log a message to stdout and/or stderr, or do nothing"""
-    if CONFIG['DEBUG']:
-        log.info(debug_string)
 
 
 class RtmBot(object):
@@ -98,7 +93,7 @@ class RtmBot(object):
         self.load_plugins()
         while True:
             for reply in self.slack_client.rtm_read():
-                dbg('reply: {}'.format(reply))
+                log.debug('Slack replied to RTM read with: {}'.format(reply))
                 self.input(reply)
             self.crons()
             self.output()
@@ -106,7 +101,7 @@ class RtmBot(object):
             time.sleep(self.interval)
             # if DEBUG and (10 < (time.time() - self.first_ping) < (10 + self.interval)) and not self.last_output:
             #     ans = self.slack_client.rtm_send_message(self.channel, "I'm alive!")
-            #     dbg('Answer to send_message: {}'.format(ans))
+            #     log.debug('Answer to send_message: {}'.format(ans))
 
     def autoping(self):
         """Automatically ping the server every 3 seconds"""
@@ -114,33 +109,34 @@ class RtmBot(object):
         if now > self.last_ping + self.ping_interval:
             self.first_ping = self.first_ping or now
             self.slack_client.server.ping()
-            dbg('Next ping in {}s'.format(self.ping_interval))
+            log.debug('Next ping in {}s'.format(self.ping_interval))
             self.last_ping = now
 
     def input(self, data):
         if "type" in data:
             function_name = "process_" + data["type"]
-            dbg("got {}".format(function_name))
+            log.debug("Slack reply contained function call for {}".format(function_name))
             for plugin in self.bot_plugins:
                 plugin.register_jobs()
                 plugin.do(function_name, data)
                 plugin.do("catch_all", data)
 
     def output(self):
-        dbg(self.bot_plugins)
         for plugin in self.bot_plugins:
-            limiter = False
-            for output in plugin.do_output():
-                dbg('Found {} output: {}'.format(plugin, output))
+            plugin_outputs = plugin.do_output()
+            log.debug('Got outputs from {}: '.format(plugin.name, plugin_outputs))
+            limit = False
+            for output in plugin_outputs:
+                log.debug('Found {} output: {}'.format(plugin, output))
                 channel = self.slack_client.server.channels.find(output[0])
-                if channel is not None and output[1] is None:
-                    if limiter is True:
+                if channel is not None and output[1] is not None:
+                    if limit:
                         time.sleep(.1)
-                        limiter = False
+                        limit = False
                     message = output[1].encode('ascii', 'ignore')
                     channel.send_message("{}".format(message))
                     self.last_output = time.time()
-                    limiter = True
+                    limit = True
 
     def crons(self):
         for plugin in self.bot_plugins:
@@ -156,7 +152,7 @@ class RtmBot(object):
             log.info("Adding {} to the plugins to be loaded.".format(plugin))
             name = plugin.split('/')[-1][:-3]
             self.bot_plugins.append(Plugin(name))
-        print('Loaded: {}'.format(self.bot_plugins))
+        print('Loaded: {}'.format([pi.name for pi in self.bot_plugins]))
 
 
 class Plugin(object):
@@ -214,11 +210,14 @@ class Plugin(object):
         while True:
             if 'outputs' in dir(self.module):
                 if len(self.module.outputs) > 0:
-                    logging.info("output from {}".format(self.module))
-                    output.append(self.module.outputs.pop(0))
+                    channel_message = self.module.outputs.pop(0)
+                    log.info("Trying to output {} from {}".format(channel_message, self.module))
+                    output.append(channel_message)
                 else:
+                    log.debug("Empty outputs in {}".format(self.module))
                     break
             else:
+                log.debug("No outputs attribute in {}".format(self.module))
                 self.module.outputs = []
         return output
 
@@ -242,7 +241,7 @@ class Job(object):
                 try:
                     self.function()
                 except:
-                    dbg("problem")
+                    log.debug("Problem running {}".format(self.function))
             else:
                 self.function()
             self.lastrun = time.time()
