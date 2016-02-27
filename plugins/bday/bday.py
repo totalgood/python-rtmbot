@@ -31,7 +31,6 @@ def process_hello(data=None):
       - create a util.slackout function that utilizes persistent data to populate the default channel
     """
     print('!!!!!!!!!!!Trying to be born!')
-    print('!!!!!!!!!!!Trying to be born!')
     outputs.append([HOME_CHANNEL, "Hi! I'm Eliza Bot."])
     outputs.append([HOME_CHANNEL, "It's good to be alive... again!"])
     outputs.append([HOME_CHANNEL, "Thanks to whomever I owe for that."])
