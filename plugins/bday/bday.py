@@ -9,11 +9,6 @@ from main import log, CONFIG
 outputs = []
 
 
-# def process_message(data):
-#     if data['type'] == 'hello':
-#         process_hello(data)
-
-
 # def catch_all(data):
 #     log.debug("CAUGHT A SLACK EVENT IN {}.{}.catch_all():".format(__file__, __name__))
 #     log.debug("{}".format(data))
@@ -33,8 +28,10 @@ def process_hello(data=None):
       - create a util.slackout function that utilizes persistent data to populate the default channel
     """
     channel = data.get('channel', CONFIG['CHANNEL'])
-    outputs.append([channel, "Hi! I'm Eliza. I'm responding to a Slack request at {} with data:\n{}".format(
-                   datetime.datetime.now(), json.dumps(data, indent=2))])
+    # only send a message if no messages are in the queue already
+    if not outputs:
+        outputs.append([channel, "Hi! I'm Eliza. I'm responding to a Slack request at {} with data:\n{}".format(
+                        datetime.datetime.now(), json.dumps(data))])
 
 
 def process_presence_change(data=None):

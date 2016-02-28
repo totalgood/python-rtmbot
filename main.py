@@ -120,8 +120,9 @@ class RtmBot(object):
 
     def output(self):
         for plugin in self.bot_plugins:
+            time.sleep(1)
             plugin_outputs = plugin.do_output()
-            log.debug('Got outputs from {}: '.format(plugin.name, plugin_outputs))
+            log.debug('Got outputs from {}: {}'.format(plugin.name, plugin_outputs))
             # limit = False
             for output in plugin_outputs:
                 log.debug('Found {} output: {}'.format(plugin, output))
@@ -149,7 +150,7 @@ class RtmBot(object):
             log.info("Adding {} to the plugins to be loaded.".format(plugin))
             name = plugin.split('/')[-1][:-3]
             self.bot_plugins.append(Plugin(name))
-        print('Loaded: {}'.format([pi.name for pi in self.bot_plugins]))
+        log.info('Loaded: {}'.format([pi.name for pi in self.bot_plugins]))
 
 
 class Plugin(object):
