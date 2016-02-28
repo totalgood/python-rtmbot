@@ -125,15 +125,15 @@ class RtmBot(object):
             limit = False
             for output in plugin_outputs:
                 log.debug('Found {} output: {}'.format(plugin, output))
+                # if limit:
+                #     time.sleep(1)
+                #     limit = False
                 channel = self.slack_client.server.channels.find(output[0])
                 if channel is not None and output[1] is not None:
-                    if limit:
-                        time.sleep(1)
-                        limit = False
                     message = output[1].encode('ascii', 'ignore')
                     channel.send_message("{}".format(message))
                     self.last_output = time.time()
-                    limit = True
+                    # limit = True
 
     def crons(self):
         for plugin in self.bot_plugins:
